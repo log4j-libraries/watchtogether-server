@@ -48,7 +48,7 @@ wss.on('connection', (ws) => {
 
       case 'create_room': {
         const roomId = uuidv4().slice(0, 6).toUpperCase();
-        rooms.set(roomId, { host: ws, guests: new Set() });
+        rooms.set(roomId, { host: ws, guests: new Set(), state: { url: '' } });
         ws.roomId = roomId;
         ws.isHost = true;
         send(ws, { type: 'room_created', roomId, peerId: ws.peerId });
@@ -66,8 +66,7 @@ wss.on('connection', (ws) => {
         room.guests.add(ws);
         ws.roomId = roomId;
         ws.isHost = false;
-        send(ws, { type: 'joined', roomId, peerId: ws.peerId });
-        // Tell host a new guest joined with their peerId
+        send(ws, { type: 'joined', roomId, peerId: ws.peerId, state: room.state });
         send(room.host, { type: 'guest_joined', peerId: ws.peerId });
         console.log(`Guest joined room: ${roomId}`);
         break;
@@ -116,6 +115,36 @@ wss.on('connection', (ws) => {
         } else {
           broadcast(room, { type: 'ice', candidate: msg.candidate, fromPeerId: ws.peerId }, ws);
         }
+        break;
+      }
+
+      case 'set_url': {
+        const room = rooms.get(ws.roomId);
+        if (!room || !ws.isHost) return;
+        room.state = room.state || {};
+        room.state.url = msg.url;
+        broadcast(room, { type: 'set_url', url: msg.url }, ws);
+        break;
+      }
+
+      case 'play': {
+        const room = rooms.get(ws.roomId);
+        if (!room || !ws.isHost) return;
+        broadcast(room, { type: 'play', currentTime: msg.currentTime }, ws);
+        break;
+      }
+
+      case 'pause': {
+        const room = rooms.get(ws.roomId);
+        if (!room || !ws.isHost) return;
+        broadcast(room, { type: 'pause', currentTime: msg.currentTime }, ws);
+        break;
+      }
+
+      case 'seek': {
+        const room = rooms.get(ws.roomId);
+        if (!room || !ws.isHost) return;
+        broadcast(room, { type: 'seek', currentTime: msg.currentTime }, ws);
         break;
       }
 
