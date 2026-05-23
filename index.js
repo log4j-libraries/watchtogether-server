@@ -119,6 +119,10 @@ wss.on('connection', (ws) => {
         break;
       }
 
+      case 'ping':
+        send(ws, { type: 'pong' });
+        break;
+
       case 'chat': {
         const room = rooms.get(ws.roomId);
         if (!room) return;
@@ -157,3 +161,12 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`WatchTogether server running on http://localhost:${PORT}`);
 });
+
+// Server-side keepalive — ping all clients every 25 seconds
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.readyState === 1) {
+      ws.ping();
+    }
+  });
+}, 25000);
